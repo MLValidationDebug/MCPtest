@@ -1,0 +1,20 @@
+{
+  "servers": [
+    {
+      "id": "core",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server/server.py"
+      ]
+    },
+    {
+      "id": "external",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server_external/server.py"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,97 @@
+"""
+MCP CHAT DEMO - COMPLETE SETUP
+===============================
+
+## ✅ Installation Complete!
+
+Dependencies installed:
+- mcp (Model Context Protocol SDK)
+- openai (for AMD LLM API)
+- gradio (for chat UI)
+- pytz (for timezone tools)
+
+## 🚀 How to Launch
+
+Run this command:
+```bash
+python app.py
+```
+
+The chat UI will open automatically at http://localhost:7860
+
+## 💬 Try These Queries
+
+Once the UI is open, try asking:
+
+1. **Calculator Tool**:
+   - "What's 25 times 8?"
+   - "Calculate 100 divided by 4 plus 10"
+
+2. **Notes Tool**:
+   - "Create a note titled 'Shopping' with content 'Milk, Eggs, Bread'"
+   - "List all my notes"
+   - "Get note note-1"
+
+3. **Time Tool**:
+   - "What time is it in Tokyo?"
+   - "What's the current time in New York?"
+   - "Show me available timezones"
+
+## 🏗️ Architecture
+
+```
+User Input
+   ↓
+Gradio UI (mcp_client/ui.py)
+   ↓
+MCP Client (mcp_client/client.py)
+   ↓
+AMD LLM API (gpt-5-mini) ← Tools list
+   ↓
+Tool Calls → MCP Server (mcp_server/server.py)
+   ↓           ↓
+Tool Results ←  Calculator, Notes, Time tools
+   ↓
+Final Response
+   ↓
+Display in UI
+```
+
+## 📁 Project Structure
+
+```
+MCPtest/
+├── app.py                    # Main launcher
+├── quickstart.py            # Quick start guide
+├── mcp_server/
+│   ├── server.py           # MCP server with tools
+│   └── tools/
+│       ├── calculator.py   # Math operations
+│       ├── notes.py        # Note management
+│       └── time_utils.py   # Time/timezone info
+├── mcp_client/
+│   ├── client.py          # MCP client + AMD LLM
+│   └── ui.py              # Gradio chat interface
+└── .env                   # API key (already set)
+```
+
+## 🔧 Technical Details
+
+- **Protocol**: Model Context Protocol (MCP)
+- **Transport**: stdio (standard input/output)
+- **LLM**: AMD LLM Gateway (gpt-5-mini model)
+- **Tools**: 7 tools available (calculator, notes, time)
+- **UI**: Gradio web interface
+
+## 🎯 Next Steps
+
+1. Run `python app.py`
+2. Chat interface opens automatically
+3. Try the example queries above
+4. The AI will automatically use tools when needed!
+
+Enjoy! 🎉
+"""
+
+if __name__ == "__main__":
+    print(__doc__)
