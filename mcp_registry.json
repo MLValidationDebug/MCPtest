@@ -15,6 +15,40 @@
       "args": [
         "mcp_server_external/server.py"
       ]
+    },
+    {
+      "id": "test-ext",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server_external/server.py"
+      ]
+    },
+    {
+      "id": "test-ext-a",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server_external/server.py"
+      ]
+    },
+    {
+      "admin_token": "test",
+      "id": "test-ext-b",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server_external/server.py"
+      ]
+    },
+    {
+      "admin_token": "test",
+      "id": "test-ext-c",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "mcp_server_external/server.py"
+      ]
     }
   ]
 }
