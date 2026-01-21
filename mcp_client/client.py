@@ -9,6 +9,8 @@ from typing import List, Dict, Any, Tuple
 from openai import OpenAI
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamable_http_client
+from mcp.shared._httpx_utils import create_mcp_http_client
 
 
 class MCPClient:
@@ -21,6 +23,10 @@ class MCPClient:
         self.sessions: Dict[str, ClientSession] = {}
         self.stdio_contexts: Dict[str, Any] = {}
         self.tool_map: Dict[str, Tuple[str, str]] = {}
+        self.tool_meta: Dict[str, Dict[str, Any]] = {}
+        self.direct_sessions: Dict[str, ClientSession] = {}
+        self.direct_contexts: Dict[str, Any] = {}
+        self.direct_http_clients: Dict[str, Any] = {}
         self.llm_client = self._setup_llm_client()
         
     def _setup_llm_client(self) -> OpenAI:
@@ -71,8 +77,16 @@ class MCPClient:
         
         # List available tools
         tools_result = await self.session.list_tools()
+        print("DEBUG: Tool list from MCP gateway: ")
+        print(tools_result)
+        print(tools_result.tools)
         self.tools = self._convert_tools_for_openai(tools_result.tools)
-        self.tool_map = {tool["function"]["name"]: ("default", tool["function"]["name"]) for tool in self.tools}
+        self.tool_map = {}
+        self.tool_meta = {}
+        for tool in tools_result.tools:
+            tool_name = tool.name
+            self.tool_map[tool_name] = ("default", tool_name)
+            self.tool_meta[tool_name] = tool.meta or {}
         
         print(f"Connected to MCP server with {len(self.tools)} tools")
 
@@ -100,6 +114,7 @@ class MCPClient:
         self.tool_map = {}
         self.sessions = {}
         self.stdio_contexts = {}
+        self.tool_meta = {}
 
         for server in servers:
             server_id = server.get("id")
@@ -142,10 +157,11 @@ class MCPClient:
                 namespace=server_id
             )
 
-            for tool in namespaced_tools:
-                tool_name = tool["function"]["name"]
-                original_name = tool_name.split(".", 1)[1]
+            for tool in tools_result.tools:
+                tool_name = f"{server_id}.{tool.name}"
+                original_name = tool.name
                 self.tool_map[tool_name] = (server_id, original_name)
+                self.tool_meta[tool_name] = tool.meta or {}
 
             self.tools.extend(namespaced_tools)
             self.sessions[server_id] = session
@@ -170,20 +186,35 @@ class MCPClient:
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> str:
         """Call a tool on the MCP server."""
+        # Decide routing: direct (if allowed and supported) or gateway
         if self.sessions:
             if tool_name not in self.tool_map:
                 raise RuntimeError(f"Tool not found: {tool_name}")
             server_id, original_name = self.tool_map[tool_name]
-            session = self.sessions.get(server_id)
-            if not session:
-                raise RuntimeError(f"Server session not found: {server_id}")
-            print(f"🔧 Calling MCP server tool: {tool_name} -> {server_id}.{original_name}")
-            result = await session.call_tool(original_name, arguments)
+            meta = self.tool_meta.get(tool_name, {})
+
+            if meta.get("direct_call_allowed") and meta.get("server_type") in {"sse", "streamable-http"} and meta.get("server_url"):
+                print(f"🔧 Direct-calling server tool: {tool_name} -> {server_id}.{original_name}")
+                result = await self._call_direct(server_id, original_name, meta, arguments)
+            else:
+                session = self.sessions.get(server_id)
+                if not session:
+                    raise RuntimeError(f"Server session not found: {server_id}")
+                print(f"🔧 Gateway-calling server tool: {tool_name} -> {server_id}.{original_name}")
+                result = await session.call_tool(original_name, arguments)
         else:
             if not self.session:
                 raise RuntimeError("Not connected to server")
-            print(f"🔧 Calling MCP server tool: {tool_name}")
-            result = await self.session.call_tool(tool_name, arguments)
+            meta = self.tool_meta.get(tool_name, {})
+            original_name = self.tool_map.get(tool_name, ("default", tool_name))[1]
+
+            if meta.get("direct_call_allowed") and meta.get("server_type") in {"sse", "streamable-http"} and meta.get("server_url"):
+                server_id = meta.get("server_id", "default")
+                print(f"🔧 Direct-calling server tool: {tool_name} -> {server_id}.{original_name}")
+                result = await self._call_direct(server_id, original_name, meta, arguments)
+            else:
+                print(f"🔧 Gateway-calling server tool: {tool_name}")
+                result = await self.session.call_tool(tool_name, arguments)
         print(f"🔧 MCP server returned result")
         
         # Extract text from result
@@ -245,7 +276,8 @@ class MCPClient:
                     "name": function_name,
                     "content": tool_result
                 })
-            
+            print("Tool meta debug:", json.dumps(self.tool_meta, indent=2))
+
             print(f"🔄 Getting final response from LLM...")
             # Get final response with tool results (run in thread to avoid blocking)
             final_response = await asyncio.to_thread(
@@ -270,3 +302,48 @@ class MCPClient:
             await session.__aexit__(None, None, None)
         for context in self.stdio_contexts.values():
             await context.__aexit__(None, None, None)
+        for session in self.direct_sessions.values():
+            try:
+                await session.__aexit__(None, None, None)
+            except Exception:
+                pass
+        for context in self.direct_contexts.values():
+            try:
+                await context.__aexit__(None, None, None)
+            except Exception:
+                pass
+        for http_client in self.direct_http_clients.values():
+            try:
+                await http_client.aclose()
+            except Exception:
+                pass
+
+    async def _call_direct(self, server_id: str, original_name: str, meta: Dict[str, Any], arguments: Dict[str, Any]):
+        """Directly call a downstream server (HTTP/SSE) when allowed."""
+        server_type = meta.get("server_type")
+        server_url = meta.get("server_url")
+        if not server_url:
+            raise RuntimeError("Direct call requested but server_url missing")
+
+        # Reuse or create session
+        session = self.direct_sessions.get(server_id)
+        if not session:
+            if server_type == "streamable-http":
+                http_client = create_mcp_http_client()
+                self.direct_http_clients[server_id] = http_client
+                transport = streamable_http_client(server_url, http_client=http_client)
+                read_stream, write_stream, _ = await transport.__aenter__()
+            elif server_type == "sse":
+                from mcp.client.sse import sse_client
+                transport = sse_client(server_url)
+                read_stream, write_stream = await transport.__aenter__()
+            else:
+                raise RuntimeError(f"Direct call not supported for server_type={server_type}")
+
+            session = ClientSession(read_stream, write_stream)
+            await session.__aenter__()
+            await session.initialize()
+            self.direct_sessions[server_id] = session
+            self.direct_contexts[server_id] = transport
+
+        return await session.call_tool(original_name, arguments)

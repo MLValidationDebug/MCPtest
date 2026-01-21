@@ -44,7 +44,8 @@ class MCPClientManager:
         # Wait for setup
         print("📡 Connecting to MCP server...")
         future = asyncio.run_coroutine_threadsafe(self._setup(), self.loop)
-        success = future.result(timeout=10)
+        # Allow more time for gateway startup / remote servers
+        success = future.result(timeout=30)
         
         if success:
             self.ready = True

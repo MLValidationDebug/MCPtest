@@ -42,6 +42,11 @@
       ]
     },
     {
+      "id": "http-remote",
+      "type": "streamable-http",
+      "url": "http://10.67.202.122:8001"
+    },
+    {
       "admin_token": "test",
       "id": "test-ext-c",
       "type": "stdio",

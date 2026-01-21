@@ -134,11 +134,28 @@ class MCPGateway:
         namespaced = []
         for tool in tools_result.tools:
             namespaced_name = f"{server_id}.{tool.name}"
+
+            # Attach routing metadata so clients can optionally bypass the gateway for HTTP/SSE servers.
+            meta: dict = {
+                "server_id": server_id,
+                "server_type": server_type,
+                "original_name": tool.name,
+            }
+            if server_type in {"sse", "streamable-http"}:
+                meta["server_url"] = server.get("url")
+                meta["direct_call_allowed"] = True
+            else:
+                meta["direct_call_allowed"] = False
+
+            # Use alias name `_meta` to ensure metadata survives serialization
             namespaced.append(Tool(
                 name=namespaced_name,
                 description=tool.description,
-                inputSchema=tool.inputSchema
+                inputSchema=tool.inputSchema,
+                _meta=meta
             ))
+            # Debug: confirm meta attached during connection
+            print(f"[gateway] attached meta for {namespaced_name}: {meta}", file=sys.stderr, flush=True)
             self.tool_map[namespaced_name] = (server_id, tool.name)
 
         self.sessions[server_id] = session
@@ -326,6 +343,13 @@ def _is_admin_ok(arguments: dict) -> bool:
 async def list_tools() -> list[Tool]:
     if not _gateway:
         return []
+    # Debug: show meta being sent so we can confirm direct-call hints propagate
+    try:
+        sample = next((t for t in _gateway.tools if t.name.startswith("http-remote")), None)
+        if sample:
+            print("[gateway] sample tool meta", sample.name, sample.meta, file=sys.stderr, flush=True)
+    except Exception:
+        pass
     return _gateway.tools + ADMIN_TOOLS
 
 
