@@ -85,8 +85,12 @@ class MCPClient:
         self.tool_meta = {}
         for tool in tools_result.tools:
             tool_name = tool.name
-            self.tool_map[tool_name] = ("default", tool_name)
-            self.tool_meta[tool_name] = tool.meta or {}
+            meta = tool.meta or {}
+            server_id = meta.get("server_id", "default")
+            # Use original_name hint from gateway meta; fallback to last segment of tool name
+            original_name = meta.get("original_name") or tool_name.split(".")[-1]
+            self.tool_map[tool_name] = (server_id, original_name)
+            self.tool_meta[tool_name] = meta
         
         print(f"Connected to MCP server with {len(self.tools)} tools")
 
