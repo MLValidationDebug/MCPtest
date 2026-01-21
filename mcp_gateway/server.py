@@ -154,14 +154,15 @@ class MCPGateway:
                 inputSchema=tool.inputSchema,
                 _meta=meta
             ))
-            # Debug: confirm meta attached during connection
-            print(f"[gateway] attached meta for {namespaced_name}: {meta}", file=sys.stderr, flush=True)
+            # Optional debug: confirm meta attached during connection
+            if os.environ.get("MCP_GATEWAY_DEBUG"):
+                print(f"[gateway] attached meta for {namespaced_name}: {meta}", file=sys.stderr, flush=True)
             self.tool_map[namespaced_name] = (server_id, tool.name)
 
         self.sessions[server_id] = session
         self.stdio_contexts[server_id] = transport_context
         self.server_tools[server_id] = namespaced
-        print(f"[gateway] connected server '{server_id}' with {len(namespaced)} tools", file=sys.stderr, flush=True)
+        # print(f"[gateway] connected server '{server_id}' with {len(namespaced)} tools", file=sys.stderr, flush=True)
 
     async def _disconnect_entry(self, server_id: str) -> None:
         """Disconnect a server and remove its tools."""
@@ -343,13 +344,14 @@ def _is_admin_ok(arguments: dict) -> bool:
 async def list_tools() -> list[Tool]:
     if not _gateway:
         return []
-    # Debug: show meta being sent so we can confirm direct-call hints propagate
-    try:
-        sample = next((t for t in _gateway.tools if t.name.startswith("http-remote")), None)
-        if sample:
-            print("[gateway] sample tool meta", sample.name, sample.meta, file=sys.stderr, flush=True)
-    except Exception:
-        pass
+    # Optional debug: show sample meta to confirm direct-call hints propagate
+    if os.environ.get("MCP_GATEWAY_DEBUG"):
+        try:
+            sample = next((t for t in _gateway.tools if t.name.startswith("http-remote")), None)
+            if sample:
+                print("[gateway] sample tool meta", sample.name, sample.meta, file=sys.stderr, flush=True)
+        except Exception:
+            pass
     return _gateway.tools + ADMIN_TOOLS
 
 

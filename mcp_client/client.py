@@ -77,9 +77,9 @@ class MCPClient:
         
         # List available tools
         tools_result = await self.session.list_tools()
-        print("DEBUG: Tool list from MCP gateway: ")
-        print(tools_result)
-        print(tools_result.tools)
+        # print("DEBUG: Tool list from MCP gateway: ")
+        # print(tools_result)
+        # print(tools_result.tools)
         self.tools = self._convert_tools_for_openai(tools_result.tools)
         self.tool_map = {}
         self.tool_meta = {}
@@ -280,7 +280,7 @@ class MCPClient:
                     "name": function_name,
                     "content": tool_result
                 })
-            print("Tool meta debug:", json.dumps(self.tool_meta, indent=2))
+            # print("Tool meta debug:", json.dumps(self.tool_meta, indent=2))
 
             print(f"🔄 Getting final response from LLM...")
             # Get final response with tool results (run in thread to avoid blocking)
