@@ -45,8 +45,10 @@ echo LLM_GATEWAY_KEY=<your_llm_gateway_key> > .env
 
 Run the complete demo:
 ```bash
-python app.py
+python app_new.py
 ```
+
+Test scripts now live in the `tests/` folder (e.g., `tests/test_client.py`).
 
 This will:
 1. Start the MCP server in the background
