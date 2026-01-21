@@ -35,10 +35,10 @@ pip install -r requirements.txt
 2. Set up your API key:
 ```bash
 # Windows PowerShell
-$env:LLM_GATEWAY_KEY="edbc8e18adab4c01b3c9c526db4f64e0"
+$env:LLM_GATEWAY_KEY="<your_llm_gateway_key>"
 
 # Or create .env file
-echo LLM_GATEWAY_KEY=edbc8e18adab4c01b3c9c526db4f64e0 > .env
+echo LLM_GATEWAY_KEY=<your_llm_gateway_key> > .env
 ```
 
 ## Quick Start
